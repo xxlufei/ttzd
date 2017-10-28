@@ -5,10 +5,10 @@
     <meta name="viewport"
           content="maximum-scale=1.0,minimum-scale=1.0,user-scalable=0,width=device-width,initial-scale=1.0"/>
     <title>天天早点</title>
-    <link rel="stylesheet" type="text/css" href="h5/css/api.css"/>
-    <link rel="stylesheet" type="text/css" href="h5/css/common.css?v=7"/>
-    <link rel="stylesheet" type="text/css" href="h5/css/goods-two.css"/>
-    <script src="h5/js/jquery.min.js"></script>
+    <link rel="stylesheet" type="text/css" href="public/h5/css/api.css"/>
+    <link rel="stylesheet" type="text/css" href="public/h5/css/common.css?v=7"/>
+    <link rel="stylesheet" type="text/css" href="public/h5/css/goods-two.css"/>
+    <script src="public/h5/js/jquery.min.js"></script>
 </head>
 <body style="background-color:#fff">
 <div id="wrap1">
