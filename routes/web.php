@@ -10,5 +10,10 @@
 | to using a Closure or controller method. Build something great!
 |
 */
+Route::group(['namespace' => 'H5'], function(){
+    Route::get('/', 'IndexController@index');
+});
+Route::group(['namespace' => 'Pub'], function(){
+    Route::get('/wechat', 'WechatController@index');
+});
 
-Route::get('/', 'H5\IndexController@index');
