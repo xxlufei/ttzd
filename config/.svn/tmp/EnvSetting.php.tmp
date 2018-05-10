@@ -1,0 +1,42 @@
+<?php
+namespace config;
+/**
+ * Created by PhpStorm.
+ * User: Administrator
+ * Date: 2017-10-28
+ * Time: 23:16
+ */
+class EnvSetting
+{
+    public static $wechat = array(
+        'debug'  => true,
+        'app_id' => 'wxf2574b28c7280b5a',
+        'secret' => 'b2df9b6273bf6fc7fa647a6f16f1a03d',
+        'token'  => 'WmKZsUarhPEq1wT8pxWapZm35OIk49pn',
+        'aes_key' => '2SFuxLCFdEJB0ieijX3KAGUvjBeiV5pDxXm5UGXIegG', // 可选
+        'log' => [
+            'level' => 'debug',
+            'file'  => '/tmp/easywechat.log', // XXX: 绝对路径！！！！
+        ],
+        'oauth' => [
+            'scopes'   => ['snsapi_userinfo'],
+            'callback' => '/oauth_callback',
+        ],
+        'payment' => [
+            'merchant_id'        => '1416931002',
+            'key'                => 'c575af869a850f5a21444fe87da69206',
+            'cert_path'          => '/www/ttzd/config/cert/wxpay_cert.pem', // XXX: 绝对路径！！！！
+            'key_path'           => '/www/ttzd/config/cert/wxpay_key.pem',      // XXX: 绝对路径！！！！
+            'notify_url'         => 'http://ttzd.lcode.cc/order_notify',       // 你也可以在下单时单独设置来想覆盖它
+            // 'device_info'     => '013467007045764',
+            // 'sub_app_id'      => '',
+            // 'sub_merchant_id' => '',
+            // ...
+        ],
+    );
+    public static $userSessionKey = 'wechat_user';
+<<<<<<< .mine
+}
+=======
+    public static $wecahtPushApi = 'https://api.weixin.qq.com/cgi-bin/message/template/send';
+}>>>>>>> .r28

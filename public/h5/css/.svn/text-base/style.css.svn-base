@@ -1,0 +1,53 @@
+/* main */
+.main{overflow:hidden;}
+
+/* left-menu */
+.left-menu{width:25%;float:left;background-color:#eee;position:relative;overflow-y:scroll;height: 500px;}
+.left-menu ul li{line-height:50px;width:100%;text-align:center;font-size:14px;padding:3px 0;color:#bbb;}
+.left-menu ul li.active{color:#333 !important;background-color:#fff; position: relative;}
+.left-menu ul li.active:after {content:"";width:4px;height:40%;position:absolute;top:30%;left:0;background:#fdbe3d;}
+
+/* right-con */
+.right-con{display:none;width:75%;float:left;overflow-y:scroll;background:#fff;position:relative;}
+.con .con-active{display:block;}
+.right-con li{position:relative;height:75px;border-top:1px solid #fff;padding-bottom:8px;margin-bottom:2px;}
+.right-con li .menu-img{position:absolute;margin-left:10px;top:15px;cursor:pointer;border-radius:10px;overflow: hidden;}
+.right-con li .menu-img img{height:55px;width:55px;vertical-align:middle;border:0;}
+.right-con li .menu-txt{margin:15px 15px 15px 75px;}
+.right-con li .menu-txt h3{font-size:14px;margin-bottom:10px;margin-top:8px;}
+.right-con li .menu-txt p{font-style:normal;line-height:20px;font-size:12px;vertical-align:bottom;
+    color: #bbb;}
+.right-con li .menu-txt p.list2 b{font-size:14px;color:#f56c36;}
+.right-con li .menu-txt p.list2 i{font-style:normal;}
+.right-con li .menu-txt .originalPrice{margin-left:10px;font-size:12px;}
+.right-con li .btn{background-color:transparent;position:absolute;right:0;top:45%;cursor:pointer;padding:3px;height:38px;}
+.right-con li .btnOff{background-color:transparent;position:absolute;right:0;top:45%;cursor:pointer;padding:3px;height:38px;color: #bbb;padding-right: 11px;}
+.right-con li .btn button.minus{margin-right:-10px;display:none;}
+.right-con li .btn button{width:40px;height:40px;border:0;background:transparent;padding:0;}
+.right-con li .btn button strong{font-size:15px;display:inline-block;text-indent:-100px;padding:5px 11px;height:12px;}
+.right-con li .btn button.minus strong{background:url(../images/icon-down.png) no-repeat;background-size:22px 22px;}
+.right-con li .btn i{display:none;width:22px;text-align:center;font-style:normal;vertical-align:top;margin-top:11px;line-height:18px;}
+.right-con li .btn button.add{margin-left:-10px;}
+.right-con li .btn button.add strong{background:url(../images/icon-up.png) no-repeat;background-size:22px 22px;}
+.right-con li .btn .price{}
+.right-con li .btn .originalPrice{display:none;}
+
+/* 购物车列表层 */
+.cartShowMode {width: 100%;height: 100%;background: #000;opacity: .3;filter: alpha(opacity=30);z-index: 50;position: fixed;_position: absolute;top: 0;display: none;}
+.cartShowLayer {width: 100%;position: fixed;bottom: 50px; background: #fff;z-index: 80; padding: 0 0 22px 0; display:none;}
+.cartShowLayer p {background: #f6f6f6;color: #333;padding: 10px 20px;}
+.cartShowLayer .cartList {padding: 0 0 0 10px;}
+.cartShowLayer .cartList li {border-top: 1px solid #ddd;padding:10px;position:relative;}
+.cartShowLayer .cartList li:first-child {border-top: 0;}
+.cartShowLayer .cartList li span {line-height: 22px;}
+.cartShowLayer .cartList li .btn{background-color:transparent;position:absolute;right:0;top:0;cursor:pointer;padding:3px;height:35px;}
+.cartShowLayer .cartList li .btn button.cartMinus{margin-right:-10px;display:none;}
+.cartShowLayer .cartList li .btn button{width:40px;height:35px;border:0;background:transparent;padding:0;}
+.cartShowLayer .cartList li .btn button strong{font-size:15px;display:inline-block;text-indent:-100px;padding:5px 11px;height:12px;}
+.cartShowLayer .cartList li .btn button.cartMinus strong{background:url(../images/icon-down.png) no-repeat;background-size:22px 22px;}
+.cartShowLayer .cartList li .btn i{display:none;width:22px;text-align:center;font-style:normal;vertical-align:top;margin-top:6px;line-height:18px;}
+.cartShowLayer .cartList li .btn button.add{margin-left:-10px;}
+.cartShowLayer .cartList li .btn button.add strong{background:url(../images/icon-up.png) no-repeat;background-size:22px 22px;}
+.cartShowLayer .cartList li .btn button.cartAdd{margin-left:-10px;}
+.cartShowLayer .cartList li .btn button.cartAdd strong{background:url(../images/icon-up.png) no-repeat;background-size:22px 22px;}
+.cartShowLayer .cartList li .btn .price{}

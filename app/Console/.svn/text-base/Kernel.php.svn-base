@@ -1,0 +1,129 @@
+<?php
+
+namespace App\Console;
+
+use App\Core\Dao\Front\Machine;
+use App\Core\Dao\Front\OrderDetail;
+use App\Core\Dao\Front\Orders;
+use App\Core\Dao\Front\User;
+use App\Core\Dao\Front\WechatPush;
+use App\Core\Enum\ExisitEnum;
+use App\Core\Enum\OrderStateEnum;
+use App\Http\Controllers\Pub\WechatController;
+use config\EnvSetting;
+use EasyWeChat\Foundation\Application;
+use Illuminate\Console\Scheduling\Schedule;
+use Illuminate\Foundation\Console\Kernel as ConsoleKernel;
+
+class Kernel extends ConsoleKernel
+{
+    /**
+     * The Artisan commands provided by your application.
+     *
+     * @var array
+     */
+    protected $commands = [
+        //
+    ];
+
+    /**
+     * Define the application's command schedule.
+     *
+     * @param  \Illuminate\Console\Scheduling\Schedule  $schedule
+     * @return void
+     */
+    protected function schedule(Schedule $schedule)
+    {
+        // $schedule->command('inspire')
+        //          ->hourly();
+        $schedule->call(function () {
+            $app = new Application(EnvSetting::$wechat);
+            $notice = $app->notice;
+            $templateId = 'Eomv031Y6qzVLTIJUvseCov7LTHCkfYI1imRXdW1G3g';
+            $openIds = ['xx'=>'o3OvdwYEVwDOsSCtlrZGNZ_3USn4', 'xiaoxiang'=>'o3OvdwbG_q5sMnb1jA_iDM5mTe1g'];
+            $pushData = WechatPush::getReadyPushData();
+            if (empty($pushData))
+                return false;
+            foreach ($pushData as $da) {
+                $orderObj = Orders::getById($da->orderid);
+                $orderDetail = OrderDetail::getOrderDetailByOrderId($da->orderid)->toArray();
+                if (empty($orderDetail))
+                    continue;
+                $machineName = Machine::getByOrderId($da->orderid);
+                $content = array(
+                    "first"  => "又有用户成功支付啦！",
+                    "name"   => $machineName,
+                    "remark" => "",
+                );
+                foreach($orderDetail as $order) {
+                    $content['remark'] .= $order['goodsname'] .'*' .$order['num'] . "\n";
+                }
+                $content['remark'] .= '收货人: ' . $orderObj->receiver . "\n";
+                $content['remark'] .= '电话: ' . $orderObj->mobile . "\n";
+                $content['remark'] .= '地址: ' . $orderObj->address . "\n";
+                foreach($openIds as $openId) {
+                    WechatController::pushMsg($notice, $openId, $templateId, $content, 'http://ttzd.lcode.cc/ad/orderlist');
+                }
+                $da->state = ExisitEnum::YES;
+                $da->save();
+            }
+        })->everyMinute();
+        /*$schedule->call(function () {
+            $app = new Application(EnvSetting::$wechat);
+            $notice = $app->notice;
+            $templateId = 'Eomv031Y6qzVLTIJUvseCov7LTHCkfYI1imRXdW1G3g';
+            $openIds = ['xx'=>'o3OvdwYEVwDOsSCtlrZGNZ_3USn4', 'xiaoxiang'=>'o3OvdwbG_q5sMnb1jA_iDM5mTe1g'];
+            $pushData = WechatPush::getReadyPushData();
+            if (empty($pushData))
+                return false;
+            foreach ($pushData as $da) {
+                $orderDetail = OrderDetail::getOrderDetailByOrderId($da->orderid)->toArray();
+                if (empty($orderDetail))
+                    continue;
+                $machineName = Machine::getByOrderId($da->orderid);
+                $content = array(
+                    "first"  => "又有用户成功支付啦！",
+                    "name"   => $machineName,
+                    "remark" => "",
+                );
+                foreach($orderDetail as $order) {
+                    $content['remark'] .= $order['goodsname'] .'*' .$order['num'] . '　库存:'.$order['stock'] . '　id: ' . $order['goodsid'] . "\n";
+                }
+                foreach($openIds as $openId) {
+                    WechatController::pushMsg($notice, $openId, $templateId, $content, '');
+                }
+                $da->state = ExisitEnum::YES;
+                $da->save();
+            }
+        })->everyMinute();*/
+        /*$schedule->call(function () {
+            $orders = Orders::getAllInitOrder();
+            if (empty($orders))
+                return false;
+            $app = new Application(EnvSetting::$wechat);
+            foreach ($orders as $order) {
+                if (strtotime($order->created_at) + 180 < time()) {
+                    $res = $app->payment->query($order->orderno);
+                    if ($res->return_code === 'SUCCESS' && $res->result_code === 'SUCCESS' && $res->trade_state === 'SUCCESS') {
+                        $order->orderstate = OrderStateEnum::PAY;
+                        $order->wxorderno = $res->transaction_id;
+                        $order->paytime = date('Y-m-d H:i:s',strtotime($res->time_end));
+                    } else {
+                        $order->orderstate = OrderStateEnum::TIMEOUT;
+                    }
+                    $order->save();
+                }
+            }
+        })->everyMinute();*/
+    }
+
+    /**
+     * Register the Closure based commands for the application.
+     *
+     * @return void
+     */
+    protected function commands()
+    {
+        require base_path('routes/console.php');
+    }
+}

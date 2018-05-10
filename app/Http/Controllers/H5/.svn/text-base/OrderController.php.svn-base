@@ -1,0 +1,260 @@
+<?php
+/**
+ * Created by PhpStorm.
+ * User: Administrator
+ * Date: 2017-10-30
+ * Time: 19:24
+ */
+
+namespace App\Http\Controllers\H5;
+
+
+use App\Core\Dao\Front\Address;
+use App\Core\Dao\Front\Machine;
+use App\Core\Dao\Front\OrderDetail;
+use App\Core\Dao\Front\Orders;
+use App\Core\Dao\Front\User;
+use App\Core\Dao\Front\WechatPush;
+use App\Core\Enum\ErrorCodeEnum;
+use App\Core\Enum\EstateEnum;
+use App\Core\Enum\ExisitEnum;
+use App\Core\Enum\OrderStateEnum;
+use App\Http\Controllers\Controller;
+use App\Http\Controllers\Pub\WechatController;
+use config\EnvSetting;
+use EasyWeChat\Foundation\Application;
+use EasyWeChat\Payment\Order;
+use Illuminate\Http\Request;
+use App\Core\Dao\Front\Category;
+use App\Core\Dao\Front\Goods;
+use Illuminate\Support\Facades\DB;
+
+class OrderController extends Controller
+{
+    public function goodsList(Request $request)
+    {
+        if (empty($request['m'])) {
+            exit('请扫码打开本页面');
+        }
+        $user = $request['user'];
+        $userId = $user['id'];
+        $order = Orders::getINGOrderByUserId($userId);
+        if (!empty($order)) {
+            return redirect("/order_book?orderId={$order->id}&orderNo={$order->orderno}");
+        }
+        $categorys = Category::getAllCategoryByMachineId($request['m']);
+        $goods = Goods::getAllGoodsByMachineId($request['m']);
+        if (empty($goods)) exit('数据有误');
+        $firstCategoryId = $categorys[0]->id;
+        return view('h5.list', ['goods' => $goods, 'categorys' => $categorys, 'firstCategoryId' => $firstCategoryId]);
+    }
+
+    public function orderSubmit(Request $request)
+    {
+        $user = $request['user'];
+        $userId = $user['id'];
+        $order = Orders::getINGOrderByUserId($userId);
+        if (!empty($order)) {
+            return response()->json(ErrorCodeEnum::ORDERINGERROR)->setCallback($request['jsonp']);
+        }
+        $params = json_decode($request['params'], true);
+        if (empty($params))
+            return $this->sendResponseErr(ErrorCodeEnum::ERROR, '参数错误');
+        $payPrice = 0;
+        $ids = array_column($params, 'id');
+        $nums = array_column($params, 'num');
+        foreach($nums as $num) {
+            if ($num < 1)
+                return response()->json(ErrorCodeEnum::ORDERINFOERROR)->setCallback($request['jsonp']);
+        }
+        $buyArr = array_combine($ids, $nums);
+        $fp = fopen('lock/orderlock', 'r');
+        flock($fp, LOCK_EX);
+        $goods = Goods::whereIn('id', $ids)->get();
+        if (empty($goods)) {
+            echo "<script>alert('订单信息错误,请重新扫码进入');</script>";
+            return;
+        }
+        $priceArr = array();
+        $nameArr = array();
+        $stockArr = array();
+        foreach ($goods as $obj) {
+            $num = $buyArr[$obj->id];
+            if ($obj->stock < $num)
+                return response()->json(ErrorCodeEnum::ERROR)->setCallback($request['jsonp']);
+            //return $this->sendResponseErr(ErrorCodeEnum::ERROR, '抱歉!库存不足，工作人员会尽快补充');
+            $obj->stock -= $num;
+            $priceArr[$obj->id] = $obj->isdiscount == ExisitEnum::YES ? $obj->discountprice : $obj->price;
+            $payPrice += $priceArr[$obj->id] * $num;
+            $nameArr[$obj->id] = $obj->name;
+            $stockArr[$obj->id] = $obj->stock;
+            $mId = $obj->machineid;
+        }
+        if (empty($mId)) {
+            return response()->json(ErrorCodeEnum::ORDERINFOERROR)->setCallback($request['jsonp']);
+        }
+        $res = Orders::createBiz1($userId, $payPrice, $buyArr, $priceArr, $nameArr, $stockArr, $mId);
+        foreach ($goods as $obj) {
+            $obj->save();
+        }
+        flock($fp, LOCK_UN);
+        fclose($fp);
+        return response()->json(['status' => 200, 'content' => $res])->setCallback($request['jsonp']);
+    }
+
+    public function book(Request $request)
+    {
+        $user = $request['user'];
+        $userId = $user['id'];
+        $orderId = $request['orderId'];
+        $orderNo = $request['orderNo'];
+        $order = Orders::getOrderByIdAndOrderNoAndUserId($orderId, $orderNo, $userId);
+        if (empty($order)) {
+            echo "<script>alert('订单信息错误,请重新扫码进入');</script>";
+            return;
+        }
+        if ($order->orderstate == OrderStateEnum::TIMEOUT) {
+            echo "<script>alert('您的订单已超时,请重新选购');window.location = '/goods_list?m='+$order->machineid;</script>";
+            return;
+        }
+        if ($order->orderstate == OrderStateEnum::PAY) {
+            echo "<script>alert('这笔订单已经支付过啦');window.location = '/goods_list?m='+$order->machineid;</script>";
+            return;
+        }
+        $detail = OrderDetail::getOrderDetailByOrderId($orderId)->toArray();
+        $goods = array();
+        foreach ($detail as $de) {
+            $goods[] = ['name' => $de['goodsname'], 'num' => $de['num'], 'price' => $de['goodsprice'] * $de['num'] / 100];
+        }
+        $address = Address::getByUserId($userId);
+        return view('h5.book', ['goods' => $goods, 'totalPrice' => $order->payprice/100, 'orderId' => $orderId, 'orderNo' => $orderNo, 'm' => $order->machineid, 'address' => $address]);
+    }
+
+    public function orderPay(Request $request)
+    {
+        $user = $request['user'];
+        $userId = $user['id'];
+        $orderNo = $request['orderNo'];
+        $orderId = $request['orderId'];
+        $nickname = $request['nickname'];
+        $mobile = $request['mobile'];
+        $address = $request['address'];
+        $order = Orders::getOrderByIdAndOrderNoAndUserId($orderId, $orderNo, $userId);
+        if (empty($order))
+            return response()->json(ErrorCodeEnum::ORDERINFOERROR)->setCallback($request['jsonp']);
+        if ($order->orderstate == OrderStateEnum::TIMEOUT)
+            return response()->json(ErrorCodeEnum::ORDERTIMEOUT)->setCallback($request['jsonp']);
+        if ($order->orderstate == OrderStateEnum::PAY)
+            return response()->json(ErrorCodeEnum::ORDERPAYERROR)->setCallback($request['jsonp']);
+        $openId = $user['openid'];
+        $app = new Application(EnvSetting::$wechat);
+        $payment = $app->payment;
+        $attributes = [
+            'trade_type'       => 'JSAPI', // JSAPI，NATIVE，APP...
+            'body'             => '食品购买',
+            'detail'           => '食品购买detail',
+            'out_trade_no'     => $order->orderno,
+            'total_fee'        => $order->payprice, // 单位：分
+            'openid'           => $openId, // trade_type=JSAPI，此参数必传，用户在商户appid下的唯一标识，
+            // ...
+        ];
+        $wxOrder = new Order($attributes);
+        $result = $payment->prepare($wxOrder);
+        if ($result->return_code == 'SUCCESS' && $result->result_code == 'SUCCESS'){
+            $prepayId = $result->prepay_id;
+        } else {
+            return response()->json(ErrorCodeEnum::ORDERREADYPAYFAILED)->setCallback($request['jsonp']);
+        }
+        $order->receiver = $nickname;
+        $order->mobile = $mobile;
+        $order->address = $address;
+        $order->save();
+        $addressObj = Address::getByUserId($userId);
+        if (!empty($addressObj)) {
+            $addressObj->receiver = $nickname;
+            $addressObj->mobile = $mobile;
+            $addressObj->address = $address;
+            $addressObj->save();
+        } else {
+            Address::createBiz($nickname, $address, $mobile, $userId);
+        }
+        $payCode = $payment->configForPayment($prepayId);
+        return response()->json(['status'=>200, 'content'=>['payCode' => $payCode]])->setCallback($request['jsonp']);
+    }
+
+    public function orderCancel(Request $request)
+    {
+        $user = $request['user'];
+        $userId = $user['id'];
+        $orderId = $request['orderId'];
+        $order = Orders::getOrderByOrderIdAndUserId($orderId, $userId);
+        if (empty($order))
+            return response()->json(['status' => 4000, 'msg' => '订单信息错误,请重新扫码进入'])->setCallback($request['jsonp']);
+        //恢复库存
+
+        $detail = OrderDetail::getOrderDetailByOrderId($orderId);
+        foreach($detail as $de) {
+            Goods::revertStock($de);
+        }
+        $order->estate = EstateEnum::DELETED;
+        $order->save();
+        return response()->json(['status' => 200, 'msg' => '订单取消成功'])->setCallback($request['jsonp']);
+    }
+
+    public function notify()
+    {
+        $app = new Application(EnvSetting::$wechat);
+        $response = $app->payment->handleNotify(function($notify, $successful){
+            if (!$successful)
+                return false;
+            $orderNo = $notify->out_trade_no;
+            $transaction_id = $notify->transaction_id;
+            $order = Orders::getByOrderNo($orderNo);
+            if (empty($order)) return false;
+            if ($order->orderstate == OrderStateEnum::PAY)
+                return false;
+            $order->orderstate = OrderStateEnum::PAY;
+            $order->wxorderno = $transaction_id;
+            $order->save();
+            file_put_contents('aaa', json_encode($notify));
+            file_put_contents('aaab', json_encode($successful));
+            // 你的逻辑
+            return false; // 或者错误消息
+        });
+        return $response;
+    }
+
+    public function getWxPayInfo(Request $request)
+    {
+        $orderId = $request['orderId'];
+        $orderNo = $request['orderNo'];
+        $userId = $request['user']['id'];
+        $order = Orders::getOrderByIdAndOrderNoAndUserId($orderId, $orderNo, $userId);
+        if (empty($order))
+            return response()->json(ErrorCodeEnum::ORDERINFOERROR)->setCallback($request['jsonp']);
+        if ($order->orderstate == OrderStateEnum::PAY)
+            return response()->json(['status'=>200, 'content'=>['']])->setCallback($request['jsonp']);
+        $app = new Application(EnvSetting::$wechat);
+        $res = $app->payment->query($orderNo);
+        if ($res->return_code === 'SUCCESS' && $res->result_code === 'SUCCESS') {
+            if ($res->trade_state === 'SUCCESS') {
+                $order->orderstate = OrderStateEnum::PAY;
+                $order->wxorderno = $res->transaction_id;
+                $order->paytime = date('Y-m-d H:i:s',strtotime($res->time_end));
+                $order->save();
+                WechatPush::createBiz($order->id);
+                return response()->json(['status'=>200, 'content'=>['']])->setCallback($request['jsonp']);
+            } else {
+                $msg = isset($res->trade_state_desc) ? $res->trade_state_desc : '没有查询到订单信息,请稍后刷新重试!';
+                return response()->json(['status'=>4000, 'msg'=>$msg])->setCallback($request['jsonp']);
+            }
+        } else {
+            return response()->json(ErrorCodeEnum::NOWEIXINPAYORDER)->setCallback($request['jsonp']);
+        }
+    }
+
+    private function orderCheck($userId)
+    {
+
+    }
+}
